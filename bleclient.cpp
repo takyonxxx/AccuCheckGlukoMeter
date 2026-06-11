@@ -144,6 +144,14 @@ void BleClient::onServiceStateChanged(QLowEnergyService::ServiceState newState)
                          ? QString()
                          : QStringLiteral(" value=") + QString::fromLatin1(val.toHex())));
 
+        // Battery Level (0x2A19): first byte is percent 0..100.
+        if (c.uuid() == QBluetoothUuid(quint16(0x2A19)) && !val.isEmpty())
+            emit batteryLevel(static_cast<quint8>(val[0]));
+
+        // Device Name (0x2A00): plain string, e.g. "AC-1R000960570".
+        if (c.uuid() == QBluetoothUuid(quint16(0x2A00)) && !val.isEmpty())
+            emit deviceName(QString::fromUtf8(val));
+
         // Auto-enable notify/indicate via the CCCD (0x2902) so data shows up.
         if (props.testFlag(QLowEnergyCharacteristic::Notify)
             || props.testFlag(QLowEnergyCharacteristic::Indicate)) {
@@ -178,6 +186,10 @@ void BleClient::onCharacteristicChanged(const QLowEnergyCharacteristic &c,
         log(QStringLiteral("  -> glucose = %1 mg/dL").arg(mgdl, 0, 'f', 0));
         emit glucoseValue(mgdl);
     }
+
+    // Battery Level notify.
+    if (c.uuid() == QBluetoothUuid(quint16(0x2A19)) && !value.isEmpty())
+        emit batteryLevel(static_cast<quint8>(value[0]));
 }
 
 void BleClient::onServiceError(QLowEnergyService::ServiceError error)

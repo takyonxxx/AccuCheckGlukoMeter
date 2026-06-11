@@ -2,19 +2,14 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QHash>
 #include <QString>
 #include <QBluetoothDeviceInfo>
 
 class BleScanner;
 class BleClient;
 class WinPairing;
-class QTableWidget;
 class QPushButton;
 class QLineEdit;
-class QSpinBox;
-class QCheckBox;
-class QPlainTextEdit;
 class QLabel;
 
 class MainWindow : public QMainWindow
@@ -24,50 +19,41 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
 
 private slots:
-    void onScanClicked();
-    void onConnectClicked();
-    void onPairClicked();
-    void onSaveLogClicked();
+    void onActionClicked();
     void onDeviceFound(const QBluetoothDeviceInfo &info, bool isTarget);
-    void onScanStarted();
     void onScanFinished();
-    void onError(const QString &message);
     void onGlucose(double mgdl);
 
 private:
-    QString deviceId(const QBluetoothDeviceInfo &info) const;
-    int rowForId(const QString &id);
-    void log(const QString &line);
+    enum class State { Idle, Searching, Pairing, Connecting, Connected, Live };
+
+    void setState(State s, const QString &detail = QString());
     void connectToInfo(const QBluetoothDeviceInfo &info);
 
     BleScanner *m_scanner = nullptr;
     BleClient  *m_client  = nullptr;
     WinPairing *m_pairing = nullptr;
 
-    QLabel         *m_glucoseValue  = nullptr;
-    QLabel         *m_glucoseUnit   = nullptr;
+    QLabel      *m_statusPill   = nullptr;
+    QLabel      *m_batteryLabel = nullptr;
+    QLabel      *m_glucoseValue = nullptr;
+    QLabel      *m_glucoseUnit  = nullptr;
+    QLabel      *m_rangeLabel   = nullptr;
+    QLabel      *m_updatedLabel = nullptr;
+    QLineEdit   *m_passkeyEdit  = nullptr;
+    QPushButton *m_actionButton = nullptr;
+    QLabel      *m_deviceLabel  = nullptr;
 
-    QTableWidget   *m_table         = nullptr;
-    QPushButton    *m_scanButton    = nullptr;
-    QPushButton    *m_connectButton = nullptr;
-    QPushButton    *m_pairButton    = nullptr;
-    QPushButton    *m_saveButton    = nullptr;
-    QLineEdit      *m_filterEdit    = nullptr;
-    QLineEdit      *m_passkeyEdit   = nullptr;
-    QSpinBox       *m_timeoutSpin   = nullptr;
-    QCheckBox      *m_autoConnect   = nullptr;
-    QPlainTextEdit *m_logView       = nullptr;
-    QLabel         *m_statusLabel   = nullptr;
-
-    QHash<QString, int> m_rowById;
-    QHash<QString, QBluetoothDeviceInfo> m_deviceById;
     QBluetoothDeviceInfo m_lastTarget;
     QString m_pairPin;
+    QString m_knownName;
 
+    State m_state = State::Idle;
     bool m_scanning = false;
-    bool m_connecting = false;
     bool m_pairArmed = false;
-    int  m_connectAttempts = 0;
+    bool m_bonded = false;
+    int  m_attempts = 0;
+    int  m_pairSightings = 0;
 };
 
 #endif // MAINWINDOW_H

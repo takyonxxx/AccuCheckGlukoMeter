@@ -27,6 +27,8 @@ HEADERS += \
 #   C:\Program Files (x86)\Windows Kits\10\Include\
 win32 {
     INCLUDEPATH += "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/cppwinrt"
+    # C++/WinRT base needs these OS import libs in a classic desktop app.
+    LIBS += -lole32 -loleaut32 -lruntimeobject
 }
 
 # --- Optional: keep shadow-build outputs tidy -------------------------------

@@ -29,6 +29,8 @@ signals:
     void disconnected();
     void connectionFailed();
     void glucoseValue(double mgdl);
+    void batteryLevel(int percent);
+    void deviceName(const QString &name);
 
 private slots:
     void onConnected();

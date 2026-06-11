@@ -157,31 +157,17 @@ void BleScanner::onErrorOccurred(QBluetoothDeviceDiscoveryAgent::Error error)
 
 bool BleScanner::matchesTarget(const QBluetoothDeviceInfo &info) const
 {
-    // 1) Strongest signal: standard glucose-related GATT services in the
-    //    advertisement. Works regardless of device name, and even with an
-    //    empty name filter.
-    static const QList<QBluetoothUuid> glucoseServices = {
-        QBluetoothUuid(quint16(0x1808)), // Glucose
+    // CGM glucose service - present even when the name is not yet resolved.
+    static const QList<QBluetoothUuid> cgmServices = {
         QBluetoothUuid(quint16(0x181F)), // Continuous Glucose Monitoring
-        QBluetoothUuid(quint16(0x181A))  // Environmental Sensing (some CGMs)
+        QBluetoothUuid(quint16(0x1808))  // Glucose
     };
     const QList<QBluetoothUuid> advertised = info.serviceUuids();
     for (const QBluetoothUuid &svc : advertised) {
-        if (glucoseServices.contains(svc))
+        if (cgmServices.contains(svc))
             return true;
     }
 
-    // 2) Name / identifier substring filter (e.g. "SmartGuide" or serial frag).
-    if (m_nameFilter.isEmpty())
-        return false;
-
-    if (info.name().contains(m_nameFilter, Qt::CaseInsensitive))
-        return true;
-
-    // Some sensors expose part of the serial in the advertised identifier.
-    const QString idText = info.deviceUuid().toString();
-    if (!idText.isEmpty() && idText.contains(m_nameFilter, Qt::CaseInsensitive))
-        return true;
-
-    return false;
+    // Accu-Chek SmartGuide sensor name prefix (e.g. "AC-1R000960570").
+    return info.name().startsWith(QStringLiteral("AC-"), Qt::CaseInsensitive);
 }
