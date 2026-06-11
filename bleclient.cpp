@@ -105,6 +105,18 @@ void BleClient::onDiscoveryFinished()
                 this, &BleClient::onCharacteristicChanged);
         connect(svc, &QLowEnergyService::errorOccurred,
                 this, &BleClient::onServiceError);
+        connect(svc, &QLowEnergyService::descriptorWritten, this,
+                [this](const QLowEnergyDescriptor &d, const QByteArray &v) {
+                    log(QStringLiteral("CCCD written (%1) = %2 -> notifications ON")
+                            .arg(d.uuid().toString(),
+                                 QString::fromLatin1(v.toHex())));
+                });
+        connect(svc, &QLowEnergyService::characteristicRead, this,
+                [this](const QLowEnergyCharacteristic &c, const QByteArray &v) {
+                    log(QStringLiteral("READ %1 = %2")
+                            .arg(c.uuid().toString(),
+                                 QString::fromLatin1(v.toHex())));
+                });
         svc->discoverDetails();
     }
 }
@@ -201,5 +213,6 @@ void BleClient::onServiceError(QLowEnergyService::ServiceError error)
 
 void BleClient::log(const QString &line)
 {
+    qDebug().noquote() << "[BleClient]" << line;
     emit logLine(line);
 }

@@ -1,6 +1,7 @@
 #include "winpairing.h"
 
 #include <QtGlobal>
+#include <QDebug>
 
 #ifdef Q_OS_WIN
 #define NOMINMAX
@@ -90,6 +91,7 @@ void WinPairing::pair(quint64 address, const QString &pin)
         }
 
         QMetaObject::invokeMethod(this, [this, ok, msg]() {
+            qDebug().noquote() << "[WinPairing]" << (ok ? "OK -" : "FAIL -") << msg;
             emit logLine(msg);
             emit finished(ok);
         }, Qt::QueuedConnection);

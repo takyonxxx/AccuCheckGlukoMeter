@@ -98,6 +98,7 @@ MainWindow::MainWindow(QWidget *parent)
     // --- Controls -----------------------------------------------------------
     m_passkeyEdit = new QLineEdit(this);
     m_passkeyEdit->setObjectName(QStringLiteral("pin"));
+    m_passkeyEdit->setText(QStringLiteral("784651"));
     m_passkeyEdit->setAlignment(Qt::AlignCenter);
     m_passkeyEdit->setPlaceholderText(
         QStringLiteral("Pair code from sensor box (first time)"));
