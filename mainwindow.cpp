@@ -2,6 +2,7 @@
 #include "blescanner.h"
 #include "bleclient.h"
 #include "winpairing.h"
+#include "batterywidget.h"
 
 #include <QWidget>
 #include <QVBoxLayout>
@@ -34,12 +35,11 @@ MainWindow::MainWindow(QWidget *parent)
     root->setSpacing(0);
 
     // --- Header -------------------------------------------------------------
-    m_batteryLabel = new QLabel(QStringLiteral("\u2014"), this);
-    m_batteryLabel->setObjectName(QStringLiteral("battery"));
-    m_batteryLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_battery = new BatteryWidget(this);
+    m_battery->setLevel(80);   // preview so the indicator is visible before connecting
     auto *topRow = new QHBoxLayout();
     topRow->addStretch();
-    topRow->addWidget(m_batteryLabel);
+    topRow->addWidget(m_battery);
     root->addLayout(topRow);
 
     auto *title = new QLabel(QStringLiteral("Accu-Chek SmartGuide"), this);
@@ -124,7 +124,6 @@ MainWindow::MainWindow(QWidget *parent)
         "QLabel { color: #e6e6e6; }"
         "#title { color: #9fb3c8; font-size: 16px; font-weight: 600;"
         "  letter-spacing: 1px; }"
-        "#battery { color: #9fb3c8; font-size: 13px; font-weight: 600; }"
         "#pill { color: #c2cede; background-color: #1b2433;"
         "  border: 1px solid #2b3950; border-radius: 13px;"
         "  padding: 5px 14px; font-size: 13px; }"
@@ -153,14 +152,7 @@ MainWindow::MainWindow(QWidget *parent)
             m_deviceLabel->setText(n);
     });
     connect(m_client, &BleClient::batteryLevel, this, [this](int pct) {
-        pct = qBound(0, pct, 100);
-        QString color = QStringLiteral("#43a047");
-        if (pct <= 15)      color = QStringLiteral("#e53935");
-        else if (pct <= 30) color = QStringLiteral("#fb8c00");
-        m_batteryLabel->setText(QStringLiteral("Battery %1%").arg(pct));
-        m_batteryLabel->setStyleSheet(
-            QStringLiteral("#battery { color: %1; font-size: 13px;"
-                           " font-weight: 600; }").arg(color));
+        m_battery->setLevel(pct);
     });
     connect(m_client, &BleClient::connected, this, [this]() {
         setState(State::Connected, QStringLiteral("waiting for reading"));
@@ -230,10 +222,6 @@ void MainWindow::setState(State s, const QString &detail)
         m_glucoseValue->setText(QStringLiteral("--"));
         m_glucoseValue->setStyleSheet(QStringLiteral("color: #5a6675;"));
         m_rangeLabel->clear();
-        m_batteryLabel->setText(QStringLiteral("\u2014"));
-        m_batteryLabel->setStyleSheet(
-            QStringLiteral("#battery { color: #9fb3c8; font-size: 13px;"
-                           " font-weight: 600; }"));
         m_deviceLabel->clear();
     }
 }

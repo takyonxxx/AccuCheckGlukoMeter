@@ -8,6 +8,7 @@
 class BleScanner;
 class BleClient;
 class WinPairing;
+class BatteryWidget;
 class QPushButton;
 class QLineEdit;
 class QLabel;
@@ -34,8 +35,8 @@ private:
     BleClient  *m_client  = nullptr;
     WinPairing *m_pairing = nullptr;
 
-    QLabel      *m_statusPill   = nullptr;
-    QLabel      *m_batteryLabel = nullptr;
+    QLabel        *m_statusPill   = nullptr;
+    BatteryWidget *m_battery      = nullptr;
     QLabel      *m_glucoseValue = nullptr;
     QLabel      *m_glucoseUnit  = nullptr;
     QLabel      *m_rangeLabel   = nullptr;

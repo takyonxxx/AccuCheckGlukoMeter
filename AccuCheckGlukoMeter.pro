@@ -14,12 +14,14 @@ SOURCES += \
     blescanner.cpp \
     bleclient.cpp \
     winpairing.cpp \
+    batterywidget.cpp \
     mainwindow.cpp
 
 HEADERS += \
     blescanner.h \
     bleclient.h \
     winpairing.h \
+    batterywidget.h \
     mainwindow.h
 
 # --- C++/WinRT (for native PIN pairing on Windows) --------------------------
