@@ -36,11 +36,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // --- Header -------------------------------------------------------------
     m_battery = new BatteryWidget(this);
-    m_battery->setLevel(80);   // preview so the indicator is visible before connecting
-    auto *topRow = new QHBoxLayout();
-    topRow->addStretch();
-    topRow->addWidget(m_battery);
-    root->addLayout(topRow);
+    m_battery->setLevel(0);    // 0% until connected
 
     auto *title = new QLabel(QStringLiteral("Accu-Chek SmartGuide"), this);
     title->setObjectName(QStringLiteral("title"));
@@ -77,6 +73,13 @@ MainWindow::MainWindow(QWidget *parent)
     m_glucoseUnit->setObjectName(QStringLiteral("unit"));
     m_glucoseUnit->setAlignment(Qt::AlignCenter);
     root->addWidget(m_glucoseUnit);
+
+    root->addSpacing(16);
+    auto *batRow = new QHBoxLayout();
+    batRow->addStretch();
+    batRow->addWidget(m_battery);
+    batRow->addStretch();
+    root->addLayout(batRow);
 
     root->addSpacing(14);
 
@@ -223,6 +226,7 @@ void MainWindow::setState(State s, const QString &detail)
         m_glucoseValue->setStyleSheet(QStringLiteral("color: #5a6675;"));
         m_rangeLabel->clear();
         m_deviceLabel->clear();
+        m_battery->setLevel(0);
     }
 }
 
