@@ -25,12 +25,12 @@ WinPairing::WinPairing(QObject *parent)
 {
 }
 
-void WinPairing::pair(quint64 address, const QString &pin)
+void WinPairing::pair(quint64 address, const QString &pin, bool forceRepair)
 {
 #ifdef Q_OS_WIN
     const std::wstring wpin = pin.toStdWString();
 
-    std::thread([this, address, wpin]() {
+    std::thread([this, address, wpin, forceRepair]() {
         bool ok = false;
         QString msg;
 
@@ -49,7 +49,22 @@ void WinPairing::pair(quint64 address, const QString &pin)
                                      "(RPA may have rotated - rescan and retry).");
             } else {
                 auto pairing = dev.DeviceInformation().Pairing();
-                if (pairing.IsPaired()) {
+
+                if (pairing.IsPaired() && forceRepair) {
+                    auto unpair = pairing.UnpairAsync().get();
+                    const auto ustatus = unpair.Status();
+                    QMetaObject::invokeMethod(this, [this, ustatus]() {
+                        qDebug().noquote() << "[WinPairing] Unpair status code:"
+                                           << static_cast<int>(ustatus);
+                    }, Qt::QueuedConnection);
+                    // Re-acquire device + pairing object after unpair.
+                    dev = BluetoothLEDevice::FromBluetoothAddressAsync(
+                              address, BluetoothAddressType::Random).get();
+                    if (dev)
+                        pairing = dev.DeviceInformation().Pairing();
+                }
+
+                if (pairing.IsPaired() && !forceRepair) {
                     ok = true;
                     msg = QStringLiteral("Already paired.");
                 } else {

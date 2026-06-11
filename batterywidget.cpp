@@ -68,7 +68,7 @@ void BatteryWidget::paintEvent(QPaintEvent *)
     f.setBold(true);
     p.setFont(f);
     p.setPen(col);
-    const QString txt = (m_level < 0) ? QStringLiteral("--")
+    const QString txt = (m_level < 0) ? QStringLiteral("N/A")
                                       : QStringLiteral("%1%").arg(m_level);
     const QRectF textRect(x + bodyW + 12, 0,
                           width() - (x + bodyW + 12), height());

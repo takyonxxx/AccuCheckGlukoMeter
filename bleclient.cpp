@@ -2,6 +2,7 @@
 
 #include <QLowEnergyDescriptor>
 #include <QStringList>
+#include <QTimer>
 #include <cmath>
 
 // IEEE-11073 16-bit SFLOAT (medfloat16) used by the CGM Measurement char.
@@ -52,6 +53,8 @@ void BleClient::connectToDevice(const QBluetoothDeviceInfo &info)
 
 void BleClient::disconnectFromDevice()
 {
+    m_cgmService = nullptr;
+    m_bulkLoading = false;
     qDeleteAll(m_services);
     m_services.clear();
 
@@ -72,6 +75,8 @@ void BleClient::onConnected()
 void BleClient::onDisconnected()
 {
     log(QStringLiteral("Disconnected."));
+    if (!m_history.isEmpty())
+        emit historyReady(m_history);
     emit disconnected();
 }
 
@@ -164,9 +169,15 @@ void BleClient::onServiceStateChanged(QLowEnergyService::ServiceState newState)
         if (c.uuid() == QBluetoothUuid(quint16(0x2A00)) && !val.isEmpty())
             emit deviceName(QString::fromUtf8(val));
 
-        // Auto-enable notify/indicate via the CCCD (0x2902) so data shows up.
-        if (props.testFlag(QLowEnergyCharacteristic::Notify)
-            || props.testFlag(QLowEnergyCharacteristic::Indicate)) {
+        // Only enable the two characteristics we actually use: CGM Measurement
+        // (0x2AA7 notify) and the Record Access Control Point (0x2A52 indicate).
+        // Subscribing to bond-management / SOCP adds GATT traffic that can make
+        // this sensor drop the link, so we leave those alone.
+        const bool wanted =
+            (c.uuid() == QBluetoothUuid(quint16(0x2AA7)))
+            || (c.uuid() == QBluetoothUuid(quint16(0x2A52)));
+        if (wanted && (props.testFlag(QLowEnergyCharacteristic::Notify)
+                       || props.testFlag(QLowEnergyCharacteristic::Indicate))) {
             const QLowEnergyDescriptor cccd = c.descriptor(
                 QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
             if (cccd.isValid()) {
@@ -181,23 +192,81 @@ void BleClient::onServiceStateChanged(QLowEnergyService::ServiceState newState)
             }
         }
     }
+
+    // On the CGM service, once notify/indicate are armed, ask the sensor to
+    // report ALL stored records so we can plot the history. The most recent
+    // record also updates the big live value.
+    if (svc->serviceUuid() == QBluetoothUuid(quint16(0x181F))) {
+        m_cgmService = svc;
+        QTimer::singleShot(1200, this, [this]() { requestLastRecord(); });
+    }
+}
+
+void BleClient::requestLastRecord()
+{
+    if (!m_cgmService)
+        return;
+    const QLowEnergyCharacteristic racp =
+        m_cgmService->characteristic(QBluetoothUuid(quint16(0x2A52)));
+    if (!racp.isValid()) {
+        log(QStringLiteral("RACP characteristic not found"));
+        return;
+    }
+    m_history.clear();
+    // RACP op-code 0x01 (Report Stored Records), operator 0x06 (Last Record).
+    // Asking for a single record is far gentler than "all records", which this
+    // sensor tends to refuse by closing the link.
+    const QByteArray cmd = QByteArray::fromHex("0106");
+    log(QStringLiteral("Writing RACP 01 06 (report last record)"));
+    m_cgmService->writeCharacteristic(racp, cmd,
+                                      QLowEnergyService::WriteWithResponse);
 }
 
 void BleClient::onCharacteristicChanged(const QLowEnergyCharacteristic &c,
                                         const QByteArray &value)
 {
-    log(QStringLiteral("NOTIFY %1 = %2")
-            .arg(c.uuid().toString(), QString::fromLatin1(value.toHex())));
-
-    // CGM Measurement: [0]=size [1]=flags [2..3]=glucose SFLOAT(LE) mg/dL ...
+    // CGM Measurement: [0]=size [1]=flags [2..3]=glucose SFLOAT(LE) mg/dL
+    //                  [4..5]=time offset (minutes, uint16 LE) ...
     if (c.uuid() == QBluetoothUuid(quint16(0x2AA7)) && value.size() >= 4) {
         const quint16 raw =
             static_cast<quint8>(value[2])
             | (static_cast<quint16>(static_cast<quint8>(value[3])) << 8);
         const double mgdl = sfloatToDouble(raw);
-        log(QStringLiteral("  -> glucose = %1 mg/dL").arg(mgdl, 0, 'f', 0));
-        emit glucoseValue(mgdl);
+
+        double offsetMin = 0.0;
+        if (value.size() >= 6) {
+            const quint16 off =
+                static_cast<quint8>(value[4])
+                | (static_cast<quint16>(static_cast<quint8>(value[5])) << 8);
+            offsetMin = off;
+        } else {
+            offsetMin = m_history.isEmpty() ? 0.0 : m_history.last().x() + 5.0;
+        }
+
+        m_history.append(QPointF(offsetMin, mgdl));
+
+        // During the RACP bulk dump, stay silent (no per-record logging or UI
+        // updates) so the whole history streams in as fast as the link allows;
+        // we draw it once when the batch finishes. Only live (non-bulk)
+        // notifications update the big value immediately.
+        if (!m_bulkLoading) {
+            log(QStringLiteral("NOTIFY glucose = %1 mg/dL @ %2 min")
+                    .arg(mgdl, 0, 'f', 0).arg(offsetMin, 0, 'f', 0));
+            emit glucoseValue(mgdl);
+        }
+        return;
     }
+
+    // RACP (0x2A52) indication: op-code 0x06 = response code => request done.
+    if (c.uuid() == QBluetoothUuid(quint16(0x2A52)) && !value.isEmpty()
+        && static_cast<quint8>(value[0]) == 0x06) {
+        m_bulkLoading = false;
+        log(QStringLiteral("RACP done. Records this fetch: %1").arg(m_history.size()));
+        return;
+    }
+
+    log(QStringLiteral("NOTIFY %1 = %2")
+            .arg(c.uuid().toString(), QString::fromLatin1(value.toHex())));
 
     // Battery Level notify.
     if (c.uuid() == QBluetoothUuid(quint16(0x2A19)) && !value.isEmpty())

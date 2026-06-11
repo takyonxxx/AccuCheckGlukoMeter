@@ -9,6 +9,8 @@
 #include <QLowEnergyCharacteristic>
 #include <QBluetoothDeviceInfo>
 #include <QBluetoothUuid>
+#include <QVector>
+#include <QPointF>
 
 // Connects to a selected BLE device (central role), discovers the full GATT
 // tree, logs every service/characteristic/property, and auto-enables
@@ -29,6 +31,7 @@ signals:
     void disconnected();
     void connectionFailed();
     void glucoseValue(double mgdl);
+    void historyReady(const QVector<QPointF> &points);
     void batteryLevel(int percent);
     void deviceName(const QString &name);
 
@@ -45,9 +48,13 @@ private slots:
 
 private:
     void log(const QString &line);
+    void requestLastRecord();   // RACP: report last stored record (single value)
 
     QLowEnergyController *m_controller = nullptr;
     QList<QLowEnergyService *> m_services;
+    QLowEnergyService *m_cgmService = nullptr;
+    QVector<QPointF> m_history;  // x = minutes since session start, y = mg/dL
+    bool m_bulkLoading = false;  // true while RACP history dump is streaming
 };
 
 #endif // BLECLIENT_H

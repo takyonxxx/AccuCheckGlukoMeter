@@ -112,11 +112,13 @@ void BleScanner::onDeviceDiscovered(const QBluetoothDeviceInfo &info)
     if (!ble)
         return; // central role: only BLE devices are of interest
 
-    const bool target = matchesTarget(info);
-    const QString line = formatDevice(info, target, QStringLiteral("new"));
+    if (!matchesTarget(info))
+        return; // ignore everything that is not the CGM sensor
+
+    const QString line = formatDevice(info, true, QStringLiteral("new"));
     qDebug().noquote() << line;
     emit deviceLogLine(line);
-    emit deviceFound(info, target);
+    emit deviceFound(info, true);
 }
 
 void BleScanner::onDeviceUpdated(const QBluetoothDeviceInfo &info,
@@ -127,19 +129,19 @@ void BleScanner::onDeviceUpdated(const QBluetoothDeviceInfo &info,
     if (!ble)
         return;
 
+    if (!matchesTarget(info))
+        return; // ignore non-sensor updates entirely
+
     // On Windows the manufacturer/service data often arrives via updates rather
-    // than the first discovery. Log those (but not plain RSSI-only updates, to
-    // keep the copyable list clean).
+    // than the first discovery; log those (but not plain RSSI-only updates).
     if (fields.testFlag(QBluetoothDeviceInfo::Field::ManufacturerData)
         || fields.testFlag(QBluetoothDeviceInfo::Field::ServiceData)) {
-        const QString line =
-            formatDevice(info, matchesTarget(info), QStringLiteral("upd"));
+        const QString line = formatDevice(info, true, QStringLiteral("upd"));
         qDebug().noquote() << line;
         emit deviceLogLine(line);
     }
 
-    // Re-emit so the UI can refresh RSSI / service data for known rows.
-    emit deviceFound(info, matchesTarget(info));
+    emit deviceFound(info, true);
 }
 
 void BleScanner::onFinished()

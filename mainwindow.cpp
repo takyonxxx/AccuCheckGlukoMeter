@@ -2,7 +2,7 @@
 #include "blescanner.h"
 #include "bleclient.h"
 #include "winpairing.h"
-#include "batterywidget.h"
+#include "glucosechart.h"
 
 #include <QWidget>
 #include <QVBoxLayout>
@@ -12,17 +12,18 @@
 #include <QLabel>
 #include <QFont>
 #include <QDateTime>
+#include <QTimer>
 #include <QBluetoothAddress>
 
 namespace {
-constexpr int kMaxAttempts = 6;
+constexpr int kMaxAttempts = 10;
 }
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle(QStringLiteral("Accu-Chek Glucose"));
-    resize(440, 620);
+    resize(460, 760);
 
     m_scanner = new BleScanner(this);
     m_client  = new BleClient(this);
@@ -35,9 +36,6 @@ MainWindow::MainWindow(QWidget *parent)
     root->setSpacing(0);
 
     // --- Header -------------------------------------------------------------
-    m_battery = new BatteryWidget(this);
-    m_battery->setLevel(0);    // 0% until connected
-
     auto *title = new QLabel(QStringLiteral("Accu-Chek SmartGuide"), this);
     title->setObjectName(QStringLiteral("title"));
     title->setAlignment(Qt::AlignHCenter);
@@ -55,7 +53,7 @@ MainWindow::MainWindow(QWidget *parent)
     pillRow->addStretch();
     root->addLayout(pillRow);
 
-    root->addStretch();
+    root->addSpacing(16);
 
     // --- Glucose reading ----------------------------------------------------
     m_glucoseValue = new QLabel(QStringLiteral("--"), this);
@@ -63,7 +61,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_glucoseValue->setAlignment(Qt::AlignCenter);
     {
         QFont f = m_glucoseValue->font();
-        f.setPointSize(120);
+        f.setPointSize(86);
         f.setBold(true);
         m_glucoseValue->setFont(f);
     }
@@ -73,13 +71,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_glucoseUnit->setObjectName(QStringLiteral("unit"));
     m_glucoseUnit->setAlignment(Qt::AlignCenter);
     root->addWidget(m_glucoseUnit);
-
-    root->addSpacing(16);
-    auto *batRow = new QHBoxLayout();
-    batRow->addStretch();
-    batRow->addWidget(m_battery);
-    batRow->addStretch();
-    root->addLayout(batRow);
 
     root->addSpacing(14);
 
@@ -93,7 +84,13 @@ MainWindow::MainWindow(QWidget *parent)
     m_updatedLabel->setAlignment(Qt::AlignCenter);
     root->addWidget(m_updatedLabel);
 
-    root->addStretch();
+    root->addSpacing(12);
+
+    // --- History chart ------------------------------------------------------
+    m_chart = new GlucoseChart(this);
+    root->addWidget(m_chart, 1);
+
+    root->addSpacing(12);
 
     // --- Controls -----------------------------------------------------------
     m_passkeyEdit = new QLineEdit(this);
@@ -112,6 +109,14 @@ MainWindow::MainWindow(QWidget *parent)
     m_actionButton->setMinimumHeight(52);
     m_actionButton->setCursor(Qt::PointingHandCursor);
     root->addWidget(m_actionButton);
+
+    root->addSpacing(8);
+
+    m_refreshButton = new QPushButton(QStringLiteral("Refresh"), this);
+    m_refreshButton->setObjectName(QStringLiteral("refresh"));
+    m_refreshButton->setMinimumHeight(40);
+    m_refreshButton->setCursor(Qt::PointingHandCursor);
+    root->addWidget(m_refreshButton);
 
     root->addSpacing(10);
 
@@ -141,10 +146,21 @@ MainWindow::MainWindow(QWidget *parent)
         "#action { background-color: #2f6fed; color: white; border: none;"
         "  border-radius: 10px; font-size: 16px; font-weight: 600; }"
         "#action:hover { background-color: #3b7bf6; }"
-        "#action:pressed { background-color: #2861d6; }"));
+        "#action:pressed { background-color: #2861d6; }"
+        "#refresh { background-color: #1b2433; color: #c2cede;"
+        "  border: 1px solid #2b3950; border-radius: 10px;"
+        "  font-size: 14px; font-weight: 600; }"
+        "#refresh:hover { background-color: #243347; }"
+        "#refresh:disabled { color: #4a5568; border-color: #222c3a; }"));
 
     // --- Wiring -------------------------------------------------------------
     connect(m_actionButton, &QPushButton::clicked, this, &MainWindow::onActionClicked);
+    connect(m_refreshButton, &QPushButton::clicked, this, [this]() {
+        // Refresh = reconnect and pull the latest value again. The sensor closes
+        // the link after each read, so a fresh connect is the way to re-read.
+        if (m_state == State::Idle)
+            startFlow();
+    });
 
     connect(m_scanner, &BleScanner::deviceFound,  this, &MainWindow::onDeviceFound);
     connect(m_scanner, &BleScanner::scanStarted,  this, [this]() { m_scanning = true; });
@@ -155,21 +171,28 @@ MainWindow::MainWindow(QWidget *parent)
         if (!n.isEmpty())
             m_deviceLabel->setText(n);
     });
-    connect(m_client, &BleClient::batteryLevel, this, [this](int pct) {
-        m_battery->setLevel(pct);
-    });
     connect(m_client, &BleClient::connected, this, [this]() {
         setState(State::Connected, QStringLiteral("waiting for reading"));
     });
     connect(m_client, &BleClient::disconnected, this, [this]() {
-        if (m_state != State::Idle)
+        // Only treat as a clean stop if we were actually online. If the link
+        // dropped mid-handshake (e.g. the sensor closed it right after the RACP
+        // write), a retry is already in flight from connectionFailed - leave it.
+        if (m_state == State::Connected || m_state == State::Live)
             setState(State::Idle, QStringLiteral("disconnected"));
     });
     connect(m_client, &BleClient::connectionFailed, this, [this]() {
+        // Already showing data: a later drop is fine, just stop cleanly.
+        if (m_state == State::Live) {
+            setState(State::Idle, QStringLiteral("disconnected"));
+            return;
+        }
         if (m_attempts < kMaxAttempts) {
             setState(State::Searching, QStringLiteral("retrying"));
-            if (!m_scanning)
-                m_scanner->startScan(15000);
+            QTimer::singleShot(1500, this, [this]() {
+                if (m_state == State::Searching && !m_scanning)
+                    m_scanner->startScan(10000);
+            });
         } else {
             setState(State::Idle, QStringLiteral("could not connect"));
         }
@@ -219,15 +242,16 @@ void MainWindow::setState(State s, const QString &detail)
     else if (busy)
         m_actionButton->setText(QStringLiteral("Cancel"));
     else
-        m_actionButton->setText(QStringLiteral("Pair & Connect"));
+        m_actionButton->setText(m_haveData ? QStringLiteral("Connect")
+                                            : QStringLiteral("Pair & Connect"));
+    m_refreshButton->setEnabled(s == State::Idle && m_haveData);
     m_passkeyEdit->setEnabled(s == State::Idle);
 
-    if (s == State::Idle) {
+    if (s == State::Idle && !m_haveData) {
         m_glucoseValue->setText(QStringLiteral("--"));
         m_glucoseValue->setStyleSheet(QStringLiteral("color: #5a6675;"));
         m_rangeLabel->clear();
         m_deviceLabel->clear();
-        m_battery->setLevel(0);
     }
 }
 
@@ -252,21 +276,31 @@ void MainWindow::onActionClicked()
     }
 
     // Idle -> start the full find/pair/connect flow.
+    startFlow();
+}
+
+void MainWindow::startFlow()
+{
+    if (m_state != State::Idle)
+        return;
     m_pairPin = m_passkeyEdit->text().trimmed();
     m_attempts = 0;
     m_pairSightings = 0;
+    m_staleSkips = 0;
+    m_didForceRepair = false;
     m_pairArmed = true;       // pair on first sighting (fresh address)
     setState(State::Searching);
     if (!m_scanning)
-        m_scanner->startScan(15000);
+        m_scanner->startScan(10000);
 }
 
 void MainWindow::connectToInfo(const QBluetoothDeviceInfo &info)
 {
+    ++m_attempts;
+    setState(State::Connecting);   // set state first so a synchronous
+                                    // scanFinished does not relaunch the scan
     if (m_scanning)
         m_scanner->stopScan();
-    ++m_attempts;
-    setState(State::Connecting);
     m_client->connectToDevice(info);
 }
 
@@ -286,19 +320,27 @@ void MainWindow::onDeviceFound(const QBluetoothDeviceInfo &info, bool isTarget)
         m_deviceLabel->setText(nm);       // fallback until AC- name is seen
 
     if (m_pairArmed) {
-        // Prefer to capture the resolved "AC-" name before pairing (so it
-        // shows during pairing), but don't wait forever.
-        if (m_knownName.isEmpty() && ++m_pairSightings < 3)
-            return;
-
+        // The sensor advertises a generic (RPA) name; its "AC-" name only
+        // appears after connecting (read from 0x2A00). So pair immediately on
+        // the first sighting instead of waiting for a name that never comes.
         m_pairArmed = false;
+        setState(State::Pairing);   // state first so a synchronous scanFinished
+                                    // does not relaunch the scan during pairing
         if (m_scanning)
             m_scanner->stopScan();
-        setState(State::Pairing);
         m_pairing->pair(info.address().toUInt64(), m_pairPin);
     } else if (m_bonded && m_state == State::Searching
                && m_attempts < kMaxAttempts) {
-        connectToInfo(info);
+        // After a drop the sensor re-advertises with a new RPA, but Windows
+        // keeps handing back the stale cached entry (rssi==0) which fails to
+        // connect. Prefer a fresh advertisement; only fall back to a stale one
+        // if no live sighting arrives for a while.
+        if (info.rssi() != 0 || m_staleSkips >= 8) {
+            m_staleSkips = 0;
+            connectToInfo(info);
+        } else {
+            ++m_staleSkips;
+        }
     }
 }
 
@@ -308,7 +350,7 @@ void MainWindow::onScanFinished()
     // Keep looking while we're in the searching phase; the user can press
     // Cancel to stop. Connection-retry bounding is handled in connectionFailed.
     if (m_state == State::Searching)
-        m_scanner->startScan(15000);
+        m_scanner->startScan(10000);
 }
 
 void MainWindow::onGlucose(double mgdl)
@@ -329,5 +371,16 @@ void MainWindow::onGlucose(double mgdl)
     m_updatedLabel->setText(QStringLiteral("Updated %1")
         .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss"))));
 
+    // Accumulate readings so the chart builds a live trend across refreshes.
+    const QDateTime now = QDateTime::currentDateTime();
+    if (!m_firstReading.isValid())
+        m_firstReading = now;
+    const double minutes = m_firstReading.secsTo(now) / 60.0;
+    m_series.append(QPointF(minutes, mgdl));
+    if (m_series.size() > 1000)
+        m_series.remove(0);
+    m_chart->setData(m_series);
+
+    m_haveData = true;
     setState(State::Live);
 }
