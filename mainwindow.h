@@ -8,6 +8,7 @@
 
 class BleScanner;
 class BleClient;
+class WinPairing;
 class QTableWidget;
 class QPushButton;
 class QLineEdit;
@@ -25,11 +26,13 @@ public:
 private slots:
     void onScanClicked();
     void onConnectClicked();
+    void onPairClicked();
     void onSaveLogClicked();
     void onDeviceFound(const QBluetoothDeviceInfo &info, bool isTarget);
     void onScanStarted();
     void onScanFinished();
     void onError(const QString &message);
+    void onGlucose(double mgdl);
 
 private:
     QString deviceId(const QBluetoothDeviceInfo &info) const;
@@ -39,12 +42,18 @@ private:
 
     BleScanner *m_scanner = nullptr;
     BleClient  *m_client  = nullptr;
+    WinPairing *m_pairing = nullptr;
 
-    QTableWidget   *m_table        = nullptr;
+    QLabel         *m_glucoseValue  = nullptr;
+    QLabel         *m_glucoseUnit   = nullptr;
+
+    QTableWidget   *m_table         = nullptr;
     QPushButton    *m_scanButton    = nullptr;
     QPushButton    *m_connectButton = nullptr;
+    QPushButton    *m_pairButton    = nullptr;
     QPushButton    *m_saveButton    = nullptr;
     QLineEdit      *m_filterEdit    = nullptr;
+    QLineEdit      *m_passkeyEdit   = nullptr;
     QSpinBox       *m_timeoutSpin   = nullptr;
     QCheckBox      *m_autoConnect   = nullptr;
     QPlainTextEdit *m_logView       = nullptr;
@@ -52,8 +61,12 @@ private:
 
     QHash<QString, int> m_rowById;
     QHash<QString, QBluetoothDeviceInfo> m_deviceById;
+    QBluetoothDeviceInfo m_lastTarget;
+    QString m_pairPin;
+
     bool m_scanning = false;
     bool m_connecting = false;
+    bool m_pairArmed = false;
     int  m_connectAttempts = 0;
 };
 

@@ -2,6 +2,17 @@
 
 #include <QLowEnergyDescriptor>
 #include <QStringList>
+#include <cmath>
+
+// IEEE-11073 16-bit SFLOAT (medfloat16) used by the CGM Measurement char.
+static double sfloatToDouble(quint16 v)
+{
+    int mantissa = v & 0x0FFF;
+    int exponent = (v >> 12) & 0x000F;
+    if (mantissa >= 0x0800) mantissa -= 0x1000; // signed 12-bit
+    if (exponent >= 0x0008) exponent -= 0x0010; // signed 4-bit
+    return mantissa * std::pow(10.0, exponent);
+}
 
 BleClient::BleClient(QObject *parent)
     : QObject(parent)
@@ -157,6 +168,16 @@ void BleClient::onCharacteristicChanged(const QLowEnergyCharacteristic &c,
 {
     log(QStringLiteral("NOTIFY %1 = %2")
             .arg(c.uuid().toString(), QString::fromLatin1(value.toHex())));
+
+    // CGM Measurement: [0]=size [1]=flags [2..3]=glucose SFLOAT(LE) mg/dL ...
+    if (c.uuid() == QBluetoothUuid(quint16(0x2AA7)) && value.size() >= 4) {
+        const quint16 raw =
+            static_cast<quint8>(value[2])
+            | (static_cast<quint16>(static_cast<quint8>(value[3])) << 8);
+        const double mgdl = sfloatToDouble(raw);
+        log(QStringLiteral("  -> glucose = %1 mg/dL").arg(mgdl, 0, 'f', 0));
+        emit glucoseValue(mgdl);
+    }
 }
 
 void BleClient::onServiceError(QLowEnergyService::ServiceError error)

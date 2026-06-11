@@ -13,12 +13,21 @@ SOURCES += \
     main.cpp \
     blescanner.cpp \
     bleclient.cpp \
+    winpairing.cpp \
     mainwindow.cpp
 
 HEADERS += \
     blescanner.h \
     bleclient.h \
+    winpairing.h \
     mainwindow.h
+
+# --- C++/WinRT (for native PIN pairing on Windows) --------------------------
+# Adjust the SDK version below to one installed on your machine. Find it under
+#   C:\Program Files (x86)\Windows Kits\10\Include\
+win32 {
+    INCLUDEPATH += "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/cppwinrt"
+}
 
 # --- Optional: keep shadow-build outputs tidy -------------------------------
 # Uncomment if you want the binary in a fixed folder next to the .pro instead

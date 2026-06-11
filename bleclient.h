@@ -28,6 +28,7 @@ signals:
     void connected();
     void disconnected();
     void connectionFailed();
+    void glucoseValue(double mgdl);
 
 private slots:
     void onConnected();
