@@ -1,5 +1,6 @@
 #include "bleclient.h"
 #include <QtBluetooth/QBluetoothUuid>
+#include <QtBluetooth/QBluetoothLocalDevice>
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
@@ -21,6 +22,13 @@ static const QBluetoothUuid kName{quint16(0x2A00)};
 BleClient::BleClient(QObject *parent) : QObject(parent) {
     m_scanner = new BleScanner(this);
     connect(m_scanner, &BleScanner::found, this, &BleClient::onScannerFound);
+
+    m_winPairing = new WinPairing(this);
+    connect(m_winPairing, &WinPairing::finished, this, [this](bool ok, const QString &msg) {
+        qDebug() << "[WinPairing]" << ok << msg;
+        setStatus(ok ? "Paired - connecting..." : "Pairing not confirmed - connecting anyway...");
+        if (m_deviceInfo.isValid()) connectToDevice(m_deviceInfo);
+    });
     connect(m_scanner, &BleScanner::finishedWithoutTarget, this, [this]() {
         if (m_controller) return;             // already connecting
         setStatus("Sensor not found - keep it nearby and try again");
@@ -65,6 +73,8 @@ void BleClient::connectAndLoad() {
 }
 
 void BleClient::refresh() { connectAndLoad(); }
+
+void BleClient::setPin(const QString &pin) { if (!pin.isEmpty()) m_pin = pin; }
 
 void BleClient::stop() {
     m_wantLive = false;
@@ -114,7 +124,22 @@ void BleClient::onScannerFound(const QBluetoothDeviceInfo &info) {
     m_deviceInfo = info;
     if (info.name().startsWith("AC-", Qt::CaseInsensitive))
         { m_deviceName = info.name(); emit deviceNameChanged(m_deviceName); }
+
+#ifdef Q_OS_WIN
+    // Windows needs a bond before encrypted GATT reads work. If not already
+    // paired, pair with the supplied PIN (default 784651), then connect.
+    QBluetoothLocalDevice local;
+    const bool paired = local.isValid() &&
+            local.pairingStatus(info.address()) != QBluetoothLocalDevice::Unpaired;
+    if (paired) {
+        connectToDevice(info);
+    } else {
+        setStatus(QString("Pairing (PIN %1)...").arg(m_pin));
+        m_winPairing->pair(info.address(), m_pin, false);
+    }
+#else
     connectToDevice(info);
+#endif
 }
 
 void BleClient::connectToDevice(const QBluetoothDeviceInfo &info) {

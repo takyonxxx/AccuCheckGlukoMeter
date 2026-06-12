@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QLabel>
 #include <QPushButton>
+#include <QLineEdit>
 #include <QTimer>
 #include "bleclient.h"
 #include "glucosechart.h"
@@ -32,6 +33,7 @@ private:
     QLabel  *m_unit = nullptr;
     QLabel  *m_avg = nullptr;
     QLabel  *m_device = nullptr;
+    QLineEdit *m_pinEdit = nullptr;
 
     QPushButton *m_primary = nullptr;
     QPushButton *m_refresh = nullptr;

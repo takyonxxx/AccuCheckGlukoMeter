@@ -81,6 +81,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(m_btn24, &QPushButton::clicked, this, [this]{ selectRange(1); });
     connect(m_btnAll, &QPushButton::clicked, this, [this]{ selectRange(2); });
 
+    // pair PIN (used on Windows; ignored elsewhere where the OS pairs)
+    auto *pinRow = new QHBoxLayout();
+    auto *pinLbl = new QLabel("Pair PIN");
+    pinLbl->setStyleSheet("color:#9AA3AE; font-size:12px;");
+    m_pinEdit = new QLineEdit("784651");
+    m_pinEdit->setMaximumWidth(120);
+    m_pinEdit->setStyleSheet(
+        "QLineEdit{color:#EAEAEA;background:#1B2331;border:1px solid #2C3850;"
+        "border-radius:6px;padding:4px 8px;}");
+    pinRow->addWidget(pinLbl);
+    pinRow->addWidget(m_pinEdit);
+    pinRow->addStretch();
+    root->addLayout(pinRow);
+
     // primary + refresh
     m_primary = new QPushButton("Connect & Load");
     m_primary->setMinimumHeight(48);
@@ -112,9 +126,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             [this](const QString &n){ m_device->setText(n); });
 
     connect(m_primary, &QPushButton::clicked, this, [this]{
-        if (m_ble->monitoring()) m_ble->stop(); else m_ble->connectAndLoad();
+        if (m_ble->monitoring()) {
+            m_ble->stop();
+        } else {
+            m_ble->setPin(m_pinEdit->text().trimmed());
+            m_ble->connectAndLoad();
+        }
     });
-    connect(m_refresh, &QPushButton::clicked, this, [this]{ m_ble->refresh(); });
+    connect(m_refresh, &QPushButton::clicked, this, [this]{
+        m_ble->setPin(m_pinEdit->text().trimmed());
+        m_ble->refresh();
+    });
 
     m_countdownTimer.setInterval(1000);
     connect(&m_countdownTimer, &QTimer::timeout, this, &MainWindow::tickCountdown);

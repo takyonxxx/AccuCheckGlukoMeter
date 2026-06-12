@@ -11,6 +11,7 @@
 #include <QList>
 #include "glucosereading.h"
 #include "blescanner.h"
+#include "winpairing.h"
 
 // Cross-platform port of the iOS BLEManager. Connects to the Accu-Chek
 // SmartGuide CGM, pulls history (with resume + record-count checks), caches
@@ -23,6 +24,7 @@ public:
 
     void connectAndLoad();   // user starts monitoring
     void refresh();          // re-sync (incremental when possible)
+    void setPin(const QString &pin);
     void stop();             // stop monitoring + disconnect
 
     QList<GlucoseReading> readings() const { return m_readings; }
@@ -87,6 +89,8 @@ private:
 
     // ---- members ----
     BleScanner           *m_scanner = nullptr;
+    WinPairing           *m_winPairing = nullptr;
+    QString               m_pin = QStringLiteral("784651");
     QLowEnergyController *m_controller = nullptr;
     QLowEnergyService    *m_cgm = nullptr;
     QLowEnergyService    *m_gap = nullptr;
