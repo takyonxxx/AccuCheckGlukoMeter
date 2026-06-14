@@ -65,7 +65,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var seenOffsets = Set<Int>()
     private var expectedCount = -1
     private var attempts = 0
-    private let maxAttempts = 8
+    private let maxAttempts = 40
     private var gotCompletion = false
     private var resuming = false
     private var triedResumeFallback = false
@@ -573,6 +573,7 @@ extension BLEManager: CBPeripheralDelegate {
             guard let op = b.first else { return }
             if op == 0x05 {
                 if b.count >= 4 { expectedCount = Int(UInt16(b[2]) | (UInt16(b[3]) << 8)) }
+                status = "Sensor reports \(expectedCount) records"
                 resuming = true
                 requestRecords()
             } else if op == 0x06 {

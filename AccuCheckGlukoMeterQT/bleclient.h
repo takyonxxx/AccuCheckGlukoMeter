@@ -110,7 +110,7 @@ private:
     QSet<int> m_seenOffsets;
     int  m_expectedCount = -1;
     int  m_attempts = 0;
-    const int m_maxAttempts = 8;
+    const int m_maxAttempts = 40;
     bool m_gotCompletion = false;
     bool m_resuming = false;
     bool m_triedResumeFallback = false;

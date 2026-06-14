@@ -11,6 +11,7 @@ SOURCES += \
     bleclient.cpp \
     blescanner.cpp \
     glucosechart.cpp \
+    healthstatusdialog.cpp \
     winpairing.cpp
 
 HEADERS += \
@@ -19,6 +20,8 @@ HEADERS += \
     blescanner.h \
     glucosechart.h \
     glucosereading.h \
+    healthadvisor.h \
+    healthstatusdialog.h \
     winpairing.h
 
 # macOS needs a Bluetooth usage description in the app bundle.

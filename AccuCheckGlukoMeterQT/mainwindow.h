@@ -36,7 +36,7 @@ private:
     QLineEdit *m_pinEdit = nullptr;
 
     QPushButton *m_primary = nullptr;
-    QPushButton *m_refresh = nullptr;
+    QPushButton *m_health = nullptr;
     QPushButton *m_btn8 = nullptr;
     QPushButton *m_btn24 = nullptr;
     QPushButton *m_btnAll = nullptr;

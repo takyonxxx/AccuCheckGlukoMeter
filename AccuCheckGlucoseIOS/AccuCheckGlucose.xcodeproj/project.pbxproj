@@ -10,6 +10,7 @@
 		1A000000000000000000000C /* AccuCheckGlucoseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000007 /* AccuCheckGlucoseApp.swift */; };
 		1A000000000000000000000D /* BLEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000008 /* BLEManager.swift */; };
 		1A000000000000000000000E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000009 /* ContentView.swift */; };
+		1A0000000000000000000021 /* HealthStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000020 /* HealthStatus.swift */; };
 		1A000000000000000000000F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A000000000000000000000A /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -18,6 +19,7 @@
 		1A0000000000000000000007 /* AccuCheckGlucoseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccuCheckGlucoseApp.swift; sourceTree = "<group>"; };
 		1A0000000000000000000008 /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEManager.swift; sourceTree = "<group>"; };
 		1A0000000000000000000009 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1A0000000000000000000020 /* HealthStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthStatus.swift; sourceTree = "<group>"; };
 		1A000000000000000000000A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A000000000000000000000B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -47,6 +49,7 @@
 				1A0000000000000000000007 /* AccuCheckGlucoseApp.swift */,
 				1A0000000000000000000008 /* BLEManager.swift */,
 				1A0000000000000000000009 /* ContentView.swift */,
+				1A0000000000000000000020 /* HealthStatus.swift */,
 				1A000000000000000000000A /* Assets.xcassets */,
 				1A000000000000000000000B /* Info.plist */,
 			);
@@ -131,6 +134,7 @@
 			files = (
 				1A000000000000000000000D /* BLEManager.swift in Sources */,
 				1A000000000000000000000E /* ContentView.swift in Sources */,
+				1A0000000000000000000021 /* HealthStatus.swift in Sources */,
 				1A000000000000000000000C /* AccuCheckGlucoseApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

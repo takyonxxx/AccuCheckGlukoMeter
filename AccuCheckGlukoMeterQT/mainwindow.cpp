@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "healthstatusdialog.h"
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -102,11 +103,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         "QPushButton{background:#3475F0;color:white;font-size:15px;font-weight:600;border-radius:10px;}");
     root->addWidget(m_primary);
 
-    m_refresh = new QPushButton("Refresh");
-    m_refresh->setMinimumHeight(40);
-    m_refresh->setStyleSheet(
-        "QPushButton{color:#E0E0E0;background:transparent;border:1px solid #4A4A4A;border-radius:10px;}");
-    root->addWidget(m_refresh);
+    m_health = new QPushButton("Health Status");
+    m_health->setMinimumHeight(40);
+    m_health->setStyleSheet(
+        "QPushButton{color:#E0E0E0;background:transparent;border:1px solid #4A4A4A;border-radius:10px;}"
+        "QPushButton:hover{border:1px solid #3475F0;color:#FFFFFF;}");
+    root->addWidget(m_health);
 
     m_device = new QLabel("");
     m_device->setAlignment(Qt::AlignCenter);
@@ -133,9 +135,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             m_ble->connectAndLoad();
         }
     });
-    connect(m_refresh, &QPushButton::clicked, this, [this]{
-        m_ble->setPin(m_pinEdit->text().trimmed());
-        m_ble->refresh();
+    connect(m_health, &QPushButton::clicked, this, [this]{
+        HealthStatusDialog dlg(m_ble->readings(), this);
+        dlg.exec();
     });
 
     m_countdownTimer.setInterval(1000);

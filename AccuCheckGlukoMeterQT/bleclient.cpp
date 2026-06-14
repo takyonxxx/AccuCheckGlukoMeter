@@ -417,6 +417,7 @@ void BleClient::onCharacteristicChanged(const QLowEnergyCharacteristic &c, const
         if (op == 0x05) {                       // Number of Stored Records Response
             if (v.size() >= 4)
                 m_expectedCount = int(quint16(quint8(v.at(2))) | (quint16(quint8(v.at(3))) << 8));
+            setStatus(QString("Sensor reports %1 records").arg(m_expectedCount));
             m_resuming = true;
             requestRecords();
         } else if (op == 0x06) {                // Completion / Response Code

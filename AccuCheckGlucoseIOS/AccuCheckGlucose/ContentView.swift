@@ -11,6 +11,7 @@ struct ContentView: View {
         var hours: Double? { self == .h8 ? 8 : (self == .h24 ? 24 : nil) }
     }
     @State private var range: Range = .all
+    @State private var showHealth = false
 
     private var isLandscape: Bool { vSize == .compact }
 
@@ -51,7 +52,7 @@ struct ContentView: View {
         let scrollable = (range == .all)
         var start: Date
         var end = lastDate
-        var visibleSeconds: Double = 24 * 3600
+        let visibleSeconds: Double = 24 * 3600
         var initialX = lastDate
 
         if let h = range.hours {                 // 8 / 24 : fixed window
@@ -113,6 +114,9 @@ struct ContentView: View {
                 }
                 .padding(20)
             }
+        }
+        .sheet(isPresented: $showHealth) {
+            HealthStatusView(readings: ble.readings)
         }
     }
 
@@ -213,13 +217,12 @@ struct ContentView: View {
             }
             .disabled(ble.isBusy && !ble.monitoring)
 
-            Button(action: { ble.refresh() }) {
-                Text("Refresh")
+            Button(action: { showHealth = true }) {
+                Text("Health Status")
                     .frame(maxWidth: .infinity).frame(height: 42)
                     .foregroundStyle(Color(white: 0.9)).font(.headline)
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(white: 0.32)))
             }
-            .disabled(ble.isBusy)
 
             if !ble.deviceName.isEmpty {
                 Text(ble.deviceName).font(.caption).foregroundStyle(Color(white: 0.5))
